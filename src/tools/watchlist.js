@@ -3,6 +3,22 @@ import { jsonResult } from './_format.js';
 import * as core from '../core/watchlist.js';
 
 export function registerWatchlistTools(server) {
+  server.tool('watchlist_import', 'Safely create or select a named TradingView watchlist from a TradingView-formatted text file. Validates layout, pane count, visible Paper Trading state, and absence of a live broker before changing the watchlist. Set dry_run to probe without selecting or importing.', {
+    file_path: z.string().describe('Readable local TradingView watchlist text file'),
+    name: z.string().describe('Exact name for the imported or selected watchlist'),
+    require_paper_connected: z.boolean().optional().describe('Require Paper Trading to be visibly connected (default false)'),
+    required_layout: z.string().optional().describe('Exact saved-layout name that must currently be active'),
+    expected_pane_count: z.coerce.number().int().positive().optional().describe('Exact number of visible chart panes required'),
+    dry_run: z.boolean().optional().describe('Validate file and UI state, including menu/upload control, without choosing a file or changing watchlists'),
+  }, async (args) => {
+    try {
+      const result = await core.importWatchlist(args);
+      return jsonResult(result, !result.success);
+    } catch (err) {
+      return jsonResult({ success: false, error: { stage: 'unexpected', message: err.message } }, true);
+    }
+  });
+
   server.tool('watchlist_get', 'Get all symbols from the current TradingView watchlist with last price, change, and change%', {}, async () => {
     try { return jsonResult(await core.get()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }

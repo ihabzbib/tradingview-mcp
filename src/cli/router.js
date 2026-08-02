@@ -45,7 +45,7 @@ function printCommandHelp(name, cmd) {
     console.log('\nOptions:');
     for (const [k, v] of Object.entries(opts)) {
       const flag = v.short ? `-${v.short}, --${k}` : `    --${k}`;
-      console.log(`  ${flag.padEnd(20)}${v.description || ''}`);
+      console.log(`  ${flag.padEnd(32)}${v.description || ''}`);
     }
   }
 }
@@ -98,7 +98,7 @@ export async function run(argv) {
           console.log('\nOptions:');
           for (const [k, v] of Object.entries(options)) {
             const flag = v.short ? `-${v.short}, --${k}` : `    --${k}`;
-            console.log(`  ${flag.padEnd(20)}${v.description || ''}`);
+            console.log(`  ${flag.padEnd(32)}${v.description || ''}`);
           }
         }
         process.exit(0);

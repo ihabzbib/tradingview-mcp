@@ -6,6 +6,7 @@
  * search UI so bare tickers resolve the same way they do for a human.
  */
 import { evaluate, evaluateAsync, getClient } from '../connection.js';
+export { importWatchlist, parseTradingViewWatchlist, validateImportFile } from './watchlist-import.js';
 
 // TV renamed the right-rail button: current builds use data-name="base" with
 // aria-label "Watchlist, details, and news"; older builds used

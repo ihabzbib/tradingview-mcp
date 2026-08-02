@@ -159,6 +159,7 @@ tv screenshot -r chart             # capture chart
 tv pine compile                    # compile Pine Script
 tv pane layout 2x2                 # 4-chart grid
 tv pane symbol 1 ES1!              # set pane symbol
+tv watchlist import --file morning.txt --name "Morning" --dry-run
 tv stream quote | jq '.close'      # monitor price changes
 ```
 
@@ -171,7 +172,7 @@ tv data lines/labels/tables/boxes/strategy/trades/equity/depth/indicator
 tv pine get/set/compile/analyze/check/save/new/open/list/errors/console
 tv draw shape/list/get/remove/clear
 tv alert list/create/delete
-tv watchlist get/add
+tv watchlist get/add/import
 tv indicator add/remove/toggle/set/get
 tv layout list/switch
 tv pane list/layout/focus/symbol
@@ -181,6 +182,26 @@ tv stream quote/bars/values/lines/labels/tables/all
 tv ui click/keyboard/hover/scroll/find/eval/type/panel/fullscreen/mouse
 tv screenshot / discover / ui-state / range / scroll
 ```
+
+### Guarded Watchlist Import
+
+Import a TradingView-formatted text file for supervised Paper Trading preparation:
+
+```bash
+tv watchlist import --file ./morning.txt --name "8/2/26 - DT" \
+  --require-paper-connected \
+  --required-layout "Supervised Morning 6-Pane" \
+  --expected-pane-count 6
+```
+
+Run the same command with `--dry-run` first to validate the file, active saved
+layout, pane count, visible Paper Trading/broker state, watchlist menu, and
+upload control without choosing a file or changing the active watchlist.
+
+The import file must use exchange-qualified symbols and include `###SECONDARY`
+and `###CONTEXT` sections. Comma-separated and newline-separated TradingView
+formats are both accepted. The importer never clears or overwrites another
+list; it selects an exact existing name or renames only a newly detected list.
 
 ## Streaming
 
@@ -306,7 +327,8 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 | `alert_create` / `alert_list` / `alert_delete` | Manage price alerts |
 | `capture_screenshot` | Screenshot (regions: full, chart, strategy_tester) |
 | `batch_run` | Run action across multiple symbols/timeframes |
-| `watchlist_get` / `watchlist_add` | Read/modify watchlist |
+| `watchlist_get` / `watchlist_add` | Read/modify the active watchlist |
+| `watchlist_import` | Safely import/select a named watchlist with optional layout, pane-count, and Paper Trading guards |
 | `layout_list` / `layout_switch` | Manage saved layouts |
 | `ui_open_panel` / `ui_click` / `ui_evaluate` | UI automation |
 | `tv_launch` / `tv_health_check` / `tv_discover` | Connection management |

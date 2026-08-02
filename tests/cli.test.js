@@ -78,6 +78,17 @@ describe('CLI — help and routing', () => {
     assert.ok(stdout.includes('--count'));
     assert.ok(stdout.includes('--summary'));
   });
+
+  it('watchlist import --help documents guarded import and dry-run options', () => {
+    const { stdout, exitCode } = run(['watchlist', 'import', '--help']);
+    assert.equal(exitCode, 0);
+    assert.ok(stdout.includes('--file'));
+    assert.ok(stdout.includes('--name'));
+    assert.ok(stdout.includes('--require-paper-connected'));
+    assert.ok(stdout.includes('--required-layout'));
+    assert.ok(stdout.includes('--expected-pane-count'));
+    assert.ok(stdout.includes('--dry-run'));
+  });
 });
 
 describe('CLI — pine analyze (offline)', () => {

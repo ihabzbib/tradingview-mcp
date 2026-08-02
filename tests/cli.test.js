@@ -99,7 +99,21 @@ describe('CLI — help and routing', () => {
     assert.ok(stdout.includes('--indicator'));
     assert.ok(stdout.includes('--frequency'));
     assert.ok(stdout.includes('--expiration'));
+    assert.ok(stdout.includes('--webhook-profile'));
     assert.ok(stdout.includes('--dry-run'));
+  });
+
+  it('alert event help documents durable webhook operations', () => {
+    const health = run(['alert', 'webhook-health', '--help']);
+    assert.equal(health.exitCode, 0);
+    const wait = run(['alert', 'event-wait', '--help']);
+    assert.equal(wait.exitCode, 0);
+    assert.ok(wait.stdout.includes('--plan-id'));
+    assert.ok(wait.stdout.includes('--message'));
+    assert.ok(wait.stdout.includes('--timeout'));
+    const ack = run(['alert', 'event-ack', '--help']);
+    assert.equal(ack.exitCode, 0);
+    assert.ok(ack.stdout.includes('--id'));
   });
 
   it('alert sync --help documents file-based idempotent dry-run', () => {

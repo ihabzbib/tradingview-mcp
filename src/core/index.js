@@ -10,6 +10,7 @@ export * as capture from './capture.js';
 export * as drawing from './drawing.js';
 export * as replay from './replay.js';
 export * as alerts from './alerts.js';
+export * as alertEvents from './alert-events.js';
 export * as batch from './batch.js';
 export * as watchlist from './watchlist.js';
 export * as indicators from './indicators.js';

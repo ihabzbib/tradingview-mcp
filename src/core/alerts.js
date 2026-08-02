@@ -28,6 +28,7 @@ const FREQUENCY_TO_INTERNAL = {
 const FREQUENCY_FROM_INTERNAL = Object.fromEntries(
   Object.entries(FREQUENCY_TO_INTERNAL).map(([external, internal]) => [internal, external]),
 );
+const WEBHOOK_PROFILE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 class AlertCapabilityError extends Error {
   constructor(stage, code, message, details = {}) {
@@ -59,6 +60,61 @@ function requireString(value, field) {
     throw new AlertCapabilityError('validation', `invalid_${field}`, `${field} is required`);
   }
   return value.trim();
+}
+
+function webhookEnvKey(profile) {
+  return `TV_WEBHOOK_URL_${profile.replaceAll('-', '_').toUpperCase()}`;
+}
+
+export function resolveWebhookProfile(profile, env = process.env) {
+  if (profile == null) return null;
+  const normalized = requireString(profile, 'webhook_profile').toLowerCase();
+  if (!WEBHOOK_PROFILE_RE.test(normalized) || normalized.length > 64) {
+    throw new AlertCapabilityError(
+      'validation',
+      'invalid_webhook_profile',
+      'webhook_profile must use lowercase letters, digits, and single hyphens',
+    );
+  }
+  const raw = env[webhookEnvKey(normalized)];
+  if (!raw) {
+    throw new AlertCapabilityError(
+      'webhook_resolution',
+      'webhook_profile_unconfigured',
+      `No HTTPS receiver is configured for webhook_profile ${normalized}`,
+    );
+  }
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new AlertCapabilityError('webhook_resolution', 'invalid_webhook_url', 'Configured webhook URL is invalid');
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    throw new AlertCapabilityError(
+      'webhook_resolution',
+      'unsafe_webhook_url',
+      'Configured webhook URL must use HTTPS and must not contain credentials, query, or fragment',
+    );
+  }
+  if (url.port && url.port !== '443') {
+    throw new AlertCapabilityError('webhook_resolution', 'invalid_webhook_port', 'Configured webhook URL must use port 443');
+  }
+  return { profile: normalized, url: url.toString() };
+}
+
+function profileForWebhookUrl(raw, env = process.env) {
+  if (typeof raw !== 'string' || !raw) return null;
+  for (const [key, value] of Object.entries(env)) {
+    if (!key.startsWith('TV_WEBHOOK_URL_')) continue;
+    let configured = value;
+    let listed = raw;
+    try { configured = new URL(value).toString(); } catch {}
+    try { listed = new URL(raw).toString(); } catch {}
+    if (configured !== listed) continue;
+    return key.slice('TV_WEBHOOK_URL_'.length).toLowerCase().replaceAll('_', '-');
+  }
+  return null;
 }
 
 function canonicalExpiration(value, now = Date.now()) {
@@ -115,6 +171,17 @@ export function validateAlertDefinition(input, options = {}) {
   const message = requireString(input.message, 'message');
 
   const normalized = { symbol, timeframe, kind, condition, frequency, expiration, message };
+  if (input.webhook_profile != null) {
+    const profile = requireString(input.webhook_profile, 'webhook_profile').toLowerCase();
+    if (!WEBHOOK_PROFILE_RE.test(profile) || profile.length > 64) {
+      throw new AlertCapabilityError(
+        'validation',
+        'invalid_webhook_profile',
+        'webhook_profile must use lowercase letters, digits, and single hyphens',
+      );
+    }
+    normalized.webhook_profile = profile;
+  }
   if (kind === 'price') {
     if (!PRICE_CONDITIONS.has(condition)) {
       throw new AlertCapabilityError(
@@ -161,12 +228,13 @@ function presentationStudy(raw, series) {
 }
 
 /** Convert a raw list_alerts item into the exact public definition shape. */
-export function normalizeListedAlert(raw) {
+export function normalizeListedAlert(raw, options = {}) {
   const conditionData = raw?.condition || raw?.conditions?.[0] || {};
   const series = Array.isArray(conditionData.series) ? conditionData.series : [];
   const studySeries = series.find(item => item?.type === 'study');
   const valueSeries = series.find(item => item?.type === 'value');
   const kind = raw?.type === 'indicator' || conditionData.type === 'alert_cond' ? 'indicator' : 'price';
+  const rawWebhook = typeof raw?.web_hook === 'string' ? raw.web_hook : '';
   const base = {
     alert_id: raw?.alert_id,
     symbol: parseSymbol(raw?.pro_symbol || raw?.symbol),
@@ -178,6 +246,8 @@ export function normalizeListedAlert(raw) {
     active: raw?.active !== false,
     created: raw?.create_time || null,
     last_fired: raw?.last_fire_time || null,
+    webhook_enabled: Boolean(rawWebhook),
+    webhook_profile: rawWebhook ? (profileForWebhookUrl(rawWebhook, options.env) || 'unrecognized') : null,
   };
 
   if (kind === 'price') {
@@ -365,7 +435,7 @@ export async function resolveLiveIndicator(definition) {
 }
 
 /** Build the exact payload understood by TradingView's structured alert API. */
-export function buildAlertPayload(definition, indicatorResolution = null) {
+export function buildAlertPayload(definition, indicatorResolution = null, webhookUrl = null) {
   const internalFrequency = FREQUENCY_TO_INTERNAL[definition.frequency];
   let condition;
   if (definition.kind === 'price') {
@@ -405,7 +475,7 @@ export function buildAlertPayload(definition, indicatorResolution = null) {
     email: false,
     sms_over_email: false,
     mobile_push: true,
-    web_hook: null,
+    web_hook: webhookUrl,
     name: null,
     expiration: definition.expiration,
     active: true,
@@ -420,6 +490,8 @@ function resolveDeps(deps = {}) {
     deleteRaw: deps.deleteRaw || postDeleteAlerts,
     resolveIndicator: deps.resolveIndicator || resolveLiveIndicator,
     listAlerts: deps.listAlerts,
+    resolveWebhook: deps.resolveWebhook || ((profile) => resolveWebhookProfile(profile, deps.env || process.env)),
+    env: deps.env || process.env,
     now: nowValue(deps),
   };
 }
@@ -431,15 +503,15 @@ export async function list({ _deps } = {}) {
     if (!result?.success) {
       throw new AlertCapabilityError('list', 'list_failed', result?.error || 'Could not list alerts');
     }
-    const alerts = (result.alerts || []).map(normalizeListedAlert);
+    const alerts = (result.alerts || []).map(alert => normalizeListedAlert(alert, { env: deps.env }));
     return { success: true, alert_count: alerts.length, source: 'internal_api', alerts };
   } catch (err) {
     return errorResult(err, { source: 'internal_api', alerts: [], alert_count: 0 });
   }
 }
 
-async function createValidated(definition, deps, indicatorResolution) {
-  const payload = buildAlertPayload(definition, indicatorResolution);
+async function createValidated(definition, deps, indicatorResolution, webhookUrl = null) {
+  const payload = buildAlertPayload(definition, indicatorResolution, webhookUrl);
   const result = await deps.createRaw(payload);
   if (!result?.success || result.alert_id == null) {
     throw new AlertCapabilityError(
@@ -456,6 +528,7 @@ export async function create(args = {}) {
   const deps = resolveDeps(args._deps);
   try {
     const definition = validateAlertDefinition(args, { now: deps.now });
+    const webhook = definition.webhook_profile ? deps.resolveWebhook(definition.webhook_profile) : null;
     const indicatorResolution = definition.kind === 'indicator'
       ? await deps.resolveIndicator(definition)
       : null;
@@ -466,6 +539,7 @@ export async function create(args = {}) {
         dry_run: true,
         definition,
         chart_state_changed: false,
+        webhook: { enabled: Boolean(webhook), profile: webhook?.profile || null },
         ...(indicatorResolution && {
           resolved_indicator: {
             pane_index: indicatorResolution.pane_index,
@@ -474,13 +548,14 @@ export async function create(args = {}) {
         }),
       };
     }
-    const created = await createValidated(definition, deps, indicatorResolution);
+    const created = await createValidated(definition, deps, indicatorResolution, webhook?.url || null);
     return {
       success: true,
       action: 'created',
       source: 'internal_api',
       alert_id: created.alert_id,
       definition,
+      webhook: { enabled: Boolean(webhook), profile: webhook?.profile || null },
       chart_state_changed: false,
     };
   } catch (err) {
@@ -500,6 +575,7 @@ function definitionFromExisting(alert) {
   };
   if (alert.kind === 'price') definition.price = alert.price;
   if (alert.kind === 'indicator') definition.indicator = alert.indicator;
+  if (alert.webhook_profile) definition.webhook_profile = alert.webhook_profile;
   return definition;
 }
 
@@ -515,6 +591,7 @@ function exactDefinition(left, right) {
     && left.frequency === right.frequency
     && sameInstant(left.expiration, right.expiration)
     && left.message === right.message
+    && (left.webhook_profile ?? null) === (right.webhook_profile ?? null)
     && (left.kind !== 'price' || left.price === right.price)
     && (left.kind !== 'indicator' || left.indicator === right.indicator);
 }
@@ -536,6 +613,7 @@ function definitionKey(definition) {
     definition.frequency,
     Date.parse(definition.expiration),
     definition.message,
+    definition.webhook_profile ?? null,
   ]);
 }
 
@@ -626,7 +704,7 @@ async function getExistingAlerts(deps) {
   if (!raw?.success) {
     throw new AlertCapabilityError('list', 'list_failed', raw?.error || 'Could not list existing alerts');
   }
-  return { success: true, alerts: (raw.alerts || []).map(normalizeListedAlert) };
+  return { success: true, alerts: (raw.alerts || []).map(alert => normalizeListedAlert(alert, { env: deps.env })) };
 }
 
 export async function syncAlerts({ alerts, replace_alert_ids = [], dry_run = false, _deps } = {}) {
@@ -634,6 +712,12 @@ export async function syncAlerts({ alerts, replace_alert_ids = [], dry_run = fal
   let definitions;
   try {
     definitions = validatePlan(alerts, deps.now);
+    const webhookUrls = new Map();
+    definitions.forEach((definition, index) => {
+      if (!definition.webhook_profile) return;
+      const resolved = deps.resolveWebhook(definition.webhook_profile);
+      webhookUrls.set(index, resolved.url);
+    });
     if (!Array.isArray(replace_alert_ids) || replace_alert_ids.some(id => !Number.isSafeInteger(Number(id)) || Number(id) <= 0)) {
       throw new AlertCapabilityError(
         'plan_validation',
@@ -712,7 +796,12 @@ export async function syncAlerts({ alerts, replace_alert_ids = [], dry_run = fal
     for (const item of diff.missing) {
       if (failedIndexes.has(item.index)) continue;
       try {
-        const result = await createValidated(item.definition, deps, resolutions.get(item.index));
+        const result = await createValidated(
+          item.definition,
+          deps,
+          resolutions.get(item.index),
+          webhookUrls.get(item.index) || null,
+        );
         created.push({ alert_id: result.alert_id, definition: item.definition });
       } catch (err) {
         failed.push({ index: item.index, definition: item.definition, stage: err.stage || 'create', error: err.message });
@@ -732,7 +821,12 @@ export async function syncAlerts({ alerts, replace_alert_ids = [], dry_run = fal
         continue;
       }
       try {
-        const result = await createValidated(item.definition, deps, resolutions.get(item.index));
+        const result = await createValidated(
+          item.definition,
+          deps,
+          resolutions.get(item.index),
+          webhookUrls.get(item.index) || null,
+        );
         replaced.push({
           alert_id: result.alert_id,
           replaced_alert_ids: item.replace_alert_ids,

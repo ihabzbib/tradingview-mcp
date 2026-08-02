@@ -172,6 +172,7 @@ tv data lines/labels/tables/boxes/strategy/trades/equity/depth/indicator
 tv pine get/set/compile/analyze/check/save/new/open/list/errors/console
 tv draw shape/list/get/remove/clear
 tv alert list/create/delete/sync
+tv alert webhook-health/event-wait/event-ack
 tv watchlist get/add/import
 tv indicator add/remove/toggle/set/get
 tv layout list/switch
@@ -222,6 +223,67 @@ duplicates, and replaces only conflicting IDs named in `replace_alert_ids`.
 Pine metadata is read from an already-open pane with the exact canonical symbol
 and timeframe; the alert resolver never focuses or changes a chart pane. Run a
 dry-run before applying a plan.
+
+### TradingView webhook receiver
+
+Run the notification-only receiver as a persistent process, separate from the
+MCP stdio process:
+
+```bash
+export TV_WEBHOOK_EVENT_DIR="$HOME/.tradingview-mcp/webhook-events"
+export TV_WEBHOOK_HOST=127.0.0.1
+export TV_WEBHOOK_PORT=8787
+npm run webhook
+```
+
+Expose only `/tradingview/alerts` through a stable HTTPS reverse proxy or
+tunnel on public port 443. Configure the proxy to validate TradingView's source
+before forwarding; the receiver deliberately binds to localhost and never
+places an order. Do not put credentials, query tokens, or fragments in the
+public URL.
+
+Give the MCP process a named public receiver profile:
+
+```bash
+export TV_WEBHOOK_URL_SUPERVISED_LOCAL="https://alerts.example.com/tradingview/alerts"
+```
+
+Then add the non-secret profile name to an exact alert definition:
+
+```json
+{
+  "message": "DT|2030-01-02|NASDAQ:NVDA|orb|1|INITIAL_ORB",
+  "webhook_profile": "supervised-local"
+}
+```
+
+`alert_create` and `alerts_sync` resolve the URL from the environment, require
+HTTPS/port 443, reject credentials/query/fragment, and never return the URL.
+Adding a webhook to an existing alert is an exact-definition conflict and
+therefore requires an explicitly approved alert replacement.
+
+The receiver accepts `text/plain` and JSON objects up to 16 KiB, writes each
+body atomically to a private durable spool, and deduplicates identical bodies.
+For any alert that can fire more than once, include a TradingView timestamp
+placeholder such as `{{timenow}}` so separate fires have distinct bodies.
+
+Test the local receiver and consume the event:
+
+```bash
+curl -i -H 'Content-Type: text/plain' \
+  --data 'DT|2030-01-02|NASDAQ:NVDA|orb|1|INITIAL_ORB' \
+  http://127.0.0.1:8787/tradingview/alerts
+
+tv alert event-wait \
+  --message 'DT|2030-01-02|NASDAQ:NVDA|orb|1|INITIAL_ORB' \
+  --timeout 5
+
+tv alert event-ack --id <event_id>
+```
+
+Call `alert_event_ack` only after the corresponding decision is durably
+journaled. TradingView webhook delivery is not guaranteed, so reconcile the
+queue against `alert_list.last_fired` after a wait timeout.
 
 ## Streaming
 
@@ -344,8 +406,9 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 |------|-------------|
 | `draw_shape` | Draw horizontal_line, trend_line, rectangle, text |
 | `draw_list` / `draw_remove_one` / `draw_clear` | Manage drawings |
-| `alert_create` / `alert_list` / `alert_delete` | Create/list/delete exact price or named Pine alerts |
+| `alert_create` / `alert_list` / `alert_delete` | Create/list/delete exact price or named Pine alerts, optionally with a named webhook profile |
 | `alerts_sync` | Idempotently diff/apply a complete alert plan while preserving unrelated alerts |
+| `webhook_health` / `alert_event_wait` / `alert_event_ack` | Inspect the receiver and consume durable alert events |
 | `capture_screenshot` | Screenshot (regions: full, chart, strategy_tester) |
 | `batch_run` | Run action across multiple symbols/timeframes |
 | `watchlist_get` / `watchlist_add` | Read/modify the active watchlist |
@@ -396,7 +459,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (84 tools) + CLI (`tv` command, 30 commands with 66 subcommands)
+- **Transport**: MCP over stdio (89 tools) + CLI (`tv` command)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`

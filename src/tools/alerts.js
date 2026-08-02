@@ -12,6 +12,7 @@ const alertDefinitionShape = {
   frequency: z.enum(['once', 'once_per_bar', 'once_per_bar_close']),
   expiration: z.string().describe('ISO-8601 timestamp with Z or an explicit offset'),
   message: z.string().describe('Exact deterministic alert message'),
+  webhook_profile: z.string().optional().describe('Configured HTTPS receiver profile, resolved from TV_WEBHOOK_URL_<PROFILE>'),
 };
 
 export function registerAlertTools(server) {

@@ -7,6 +7,7 @@ import { registerDataTools } from './tools/data.js';
 import { registerCaptureTools } from './tools/capture.js';
 import { registerDrawingTools } from './tools/drawing.js';
 import { registerAlertTools } from './tools/alerts.js';
+import { registerAlertEventTools } from './tools/alert-events.js';
 import { registerBatchTools } from './tools/batch.js';
 import { registerReplayTools } from './tools/replay.js';
 import { registerIndicatorTools } from './tools/indicators.js';
@@ -22,7 +23,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 84 tools for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 89 tools for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -56,6 +57,7 @@ Replay: replay_start → replay_step → replay_trade → replay_status → repl
 Batch: batch_run → run action across multiple symbols/timeframes
 Drawing: draw_shape → horizontal_line, trend_line, rectangle, text
 Alerts: alert_create → one exact definition; alerts_sync → preferred idempotent approved-plan diff/apply (dry_run first); alert_list, alert_delete
+Webhook events: webhook_health → receiver/queue status; alert_event_wait → long-wait for exact durable event; alert_event_ack → acknowledge only after journaling
 Launch: tv_launch → auto-detect and start TradingView with CDP on any platform
 Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Watchlists: watchlist_import → guarded named import/select for supervised Paper Trading preparation (use dry_run first)
@@ -78,6 +80,7 @@ registerDataTools(server);
 registerCaptureTools(server);
 registerDrawingTools(server);
 registerAlertTools(server);
+registerAlertEventTools(server);
 registerBatchTools(server);
 registerReplayTools(server);
 registerIndicatorTools(server);

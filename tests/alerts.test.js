@@ -2,8 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAlertPayload,
+  classifyAlertPlan,
   create,
   normalizeListedAlert,
+  resolveWebhookProfile,
   syncAlerts,
   validateAlertDefinition,
 } from '../src/core/alerts.js';
@@ -62,7 +64,7 @@ function existingAlert(definition, alertId, overrides = {}) {
 }
 
 function mockDeps({ existing = [], createResults = [], resolveResult = resolvedIndicator() } = {}) {
-  const calls = { list: 0, create: [], delete: [], resolve: [] };
+  const calls = { list: 0, create: [], delete: [], resolve: [], webhook: [] };
   let createIndex = 0;
   return {
     calls,
@@ -85,6 +87,10 @@ function mockDeps({ existing = [], createResults = [], resolveResult = resolvedI
         calls.resolve.push(structuredClone(definition));
         if (resolveResult instanceof Error) throw resolveResult;
         return structuredClone(resolveResult);
+      },
+      resolveWebhook(profile) {
+        calls.webhook.push(profile);
+        return { profile, url: 'https://alerts.example.test/tradingview/alerts' };
       },
     },
   };
@@ -155,6 +161,48 @@ describe('alert definition validation and payloads', () => {
     assert.equal(mock.calls.delete.length, 0);
   });
 
+  it('resolves a webhook profile without exposing its URL in results', async () => {
+    const mock = mockDeps();
+    const result = await create({
+      ...priceDefinition({ webhook_profile: 'supervised-local' }),
+      dry_run: true,
+      _deps: mock.deps,
+    });
+    assert.equal(result.success, true);
+    assert.deepEqual(result.webhook, { enabled: true, profile: 'supervised-local' });
+    assert.equal(JSON.stringify(result).includes('alerts.example.test'), false);
+    assert.deepEqual(mock.calls.webhook, ['supervised-local']);
+    assert.equal(mock.calls.create.length, 0);
+  });
+
+  it('includes the configured webhook URL only in the TradingView create payload', async () => {
+    const mock = mockDeps();
+    const result = await create({
+      ...priceDefinition({ webhook_profile: 'supervised-local' }),
+      _deps: mock.deps,
+    });
+    assert.equal(result.success, true);
+    assert.equal(mock.calls.create[0].web_hook, 'https://alerts.example.test/tradingview/alerts');
+    assert.equal(JSON.stringify(result).includes('alerts.example.test'), false);
+  });
+
+  it('requires a safe configured HTTPS webhook profile', () => {
+    assert.throws(
+      () => resolveWebhookProfile('supervised-local', {}),
+      /No HTTPS receiver is configured/,
+    );
+    assert.throws(
+      () => resolveWebhookProfile('supervised-local', {
+        TV_WEBHOOK_URL_SUPERVISED_LOCAL: 'http://localhost:8787/tradingview/alerts',
+      }),
+      /must use HTTPS/,
+    );
+    const resolved = resolveWebhookProfile('supervised-local', {
+      TV_WEBHOOK_URL_SUPERVISED_LOCAL: 'https://alerts.example.test/tradingview/alerts',
+    });
+    assert.equal(resolved.profile, 'supervised-local');
+  });
+
   it('fails closed when an exact Pine condition cannot be resolved', async () => {
     const unsupported = new Error('Exact Pine condition is unavailable');
     unsupported.stage = 'indicator_resolution';
@@ -197,6 +245,27 @@ describe('alert definition validation and payloads', () => {
     assert.equal(normalized.condition, 'Exact Pine Condition');
     assert.equal(normalized.frequency, 'once_per_bar_close');
     assert.equal(normalized.expiration, NORMALIZED_EXPIRATION);
+    assert.equal(normalized.webhook_enabled, false);
+  });
+
+  it('normalizes a configured webhook URL back to its non-secret profile', () => {
+    const normalized = normalizeListedAlert({
+      alert_id: 78,
+      symbol: '={"symbol":"NASDAQ:NVDA"}',
+      resolution: '1',
+      message: 'deterministic',
+      expiration: NORMALIZED_EXPIRATION,
+      active: true,
+      web_hook: 'https://alerts.example.test/tradingview/alerts',
+      condition: {
+        type: 'cross',
+        frequency: 'on_bar_close',
+        resolution: '1',
+        series: [{ type: 'value', value: 123.45 }],
+      },
+    }, { env: { TV_WEBHOOK_URL_SUPERVISED_LOCAL: 'https://alerts.example.test/tradingview/alerts' } });
+    assert.equal(normalized.webhook_enabled, true);
+    assert.equal(normalized.webhook_profile, 'supervised-local');
   });
 });
 
@@ -318,6 +387,32 @@ describe('alerts_sync', () => {
     assert.equal(mock.calls.create.length, 0);
     assert.equal(mock.calls.delete.length, 0);
   });
+
+  it('resolves every webhook profile before listing or mutating', async () => {
+    const definition = priceDefinition({ webhook_profile: 'supervised-local' });
+    const mock = mockDeps();
+    const result = await syncAlerts({ alerts: [definition], dry_run: true, _deps: mock.deps });
+    assert.equal(result.success, true);
+    assert.deepEqual(mock.calls.webhook, ['supervised-local']);
+    assert.equal(mock.calls.list, 1);
+
+    const blocked = mockDeps();
+    blocked.deps.resolveWebhook = () => { throw new Error('receiver profile unavailable'); };
+    const failed = await syncAlerts({ alerts: [definition], _deps: blocked.deps });
+    assert.equal(failed.success, false);
+    assert.equal(blocked.calls.list, 0);
+    assert.equal(blocked.calls.create.length, 0);
+    assert.equal(blocked.calls.delete.length, 0);
+  });
+
+  it('classifies adding a webhook to an existing identity as a conflict', () => {
+    const base = priceDefinition();
+    const planned = validateAlertDefinition({ ...base, webhook_profile: 'supervised-local' }, { now: NOW });
+    const existing = existingAlert(base, 808);
+    const diff = classifyAlertPlan([planned], [existing]);
+    assert.equal(diff.unchanged.length, 0);
+    assert.equal(diff.conflict.length, 1);
+  });
 });
 
 describe('alert MCP contracts', () => {
@@ -331,7 +426,7 @@ describe('alert MCP contracts', () => {
     const createTool = registrations.find(tool => tool.name === 'alert_create');
     assert.deepEqual(Object.keys(createTool.schema), [
       'symbol', 'timeframe', 'kind', 'condition', 'price', 'indicator',
-      'frequency', 'expiration', 'message', 'dry_run',
+      'frequency', 'expiration', 'message', 'webhook_profile', 'dry_run',
     ]);
     const syncTool = registrations.find(tool => tool.name === 'alerts_sync');
     assert.ok(syncTool);

@@ -299,13 +299,17 @@ async function inspectState(evaluate) {
 
       var statusSelectors = [
         '[data-name*="broker"]', '[data-name*="trading"]', '[class*="broker"]',
-        '[aria-label*="broker" i]', '[aria-label*="Paper Trading" i]', '[role="status"]'
+        '[aria-label*="broker" i]', '[aria-label*="Paper Trading" i]', '[role="status"]',
+        'button[aria-label*="account manager" i]'
       ];
       var statusElements = document.querySelectorAll(statusSelectors.join(','));
       var brokerLabels = [];
       for (var b = 0; b < statusElements.length; b++) {
         if (!visible(statusElements[b])) continue;
-        var statusText = clean(statusElements[b].getAttribute('aria-label') || statusElements[b].textContent);
+        var statusText = clean([
+          statusElements[b].getAttribute('aria-label'),
+          statusElements[b].textContent
+        ].filter(Boolean).join(' '));
         if (statusText && statusText.length < 240 && brokerLabels.indexOf(statusText) === -1) brokerLabels.push(statusText);
       }
       var joined = brokerLabels.join(' | ');

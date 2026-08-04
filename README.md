@@ -50,7 +50,7 @@ See [RESEARCH.md](RESEARCH.md) for open questions, findings, and related work.
 ## Prerequisites
 
 - **TradingView Desktop app** (paid subscription required for real-time data)
-- **Node.js 18+**
+- **Node.js 24+**
 - **Claude Code** with MCP support (for MCP tools) or any terminal (for CLI)
 - **macOS, Windows, or Linux**
 
@@ -124,7 +124,7 @@ Add to your Claude Code MCP config (`~/.claude/.mcp.json` or project `.mcp.json`
   "mcpServers": {
     "tradingview": {
       "command": "node",
-      "args": ["/path/to/tradingview-mcp/src/server-bootstrap.js"]
+      "args": ["/path/to/tradingview-mcp/src/server.js"]
     }
   }
 }
@@ -136,7 +136,7 @@ For local environment variables like `TV_TRADING_EXECUTION_PROFILE`,
 `TV_TRADING_BROKER`, `TV_TRADING_ADAPTER_MODULE`, and
 `TV_TRADING_IDEMPOTENCY_DIR`, either set them in your MCP host environment or
 place them in a `.env` file at the project root (loaded automatically by
-`server-bootstrap.js`).
+`node --env-file=.env`).
 
 ### 4. Verify
 

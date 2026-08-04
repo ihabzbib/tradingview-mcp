@@ -19,7 +19,7 @@
     "launch:windows": "scripts/launch_tv_debug.bat",
     "launch:windows:vbs": "cscript //nologo scripts/launch_tv_debug.vbs",
     "webhook": "node src/webhook/server.js",
-    "ngrok:auth": "node -e \"const { spawnSync } = require('node:child_process'); const token = process.env.NGROK_AUTH_TOKEN; if (!token) { console.error('Set NGROK_AUTH_TOKEN before running npm run ngrok:auth.'); process.exit(1); } const child = spawnSync('ngrok', ['config', 'add-authtoken', token], { stdio: 'inherit', shell: true }); process.exit(typeof child.status === 'number' ? child.status : 0);\"",
+    "ngrok:auth": "node -e \"const { spawnSync } = require('node:child_process'); const token = process.env.NGROK_TOKEN; if (!token) { console.error('Set NGROK_TOKEN before running npm run ngrok:auth.'); process.exit(1); } const child = spawnSync('ngrok', ['config', 'add-authtoken', token], { stdio: 'inherit', shell: true }); process.exit(typeof child.status === 'number' ? child.status : 0);\"",
     "ngrok:webhook": "node -e \"const { spawn } = require('node:child_process'); const port = process.env.TV_WEBHOOK_PORT || '8787'; const child = spawn('ngrok', ['http', port], { stdio: 'inherit' }); child.on('error', (error) => { console.error('Failed to start ngrok:', error.message); process.exit(1); }); child.on('exit', (code) => { process.exit(code ?? 0); });\"",
     "tv": "node src/cli/index.js",
     "lint": "eslint src/",

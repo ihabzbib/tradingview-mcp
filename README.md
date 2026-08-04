@@ -267,7 +267,7 @@ npm run webhook
 Expose `npm run ngrok:auth` and `npm run ngrok:webhook` for local tunnel setup:
 
 ```bash
-export NGROK_TOKEN="..."
+export NGROK_AUTH_TOKEN="..."
 npm run ngrok:auth
 npm run ngrok:webhook
 ```

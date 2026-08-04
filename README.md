@@ -163,6 +163,8 @@ tv symbol AAPL                     # change symbol
 tv ohlcv --summary                 # price summary
 tv screenshot -r chart             # capture chart
 tv pine compile                    # compile Pine Script
+tv pine pull                       # save current Pine script to scripts/current.pine
+tv pine push                       # load scripts/current.pine and smart-compile
 tv pane layout 2x2                 # 4-chart grid
 tv pane symbol 1 ES1!              # set pane symbol
 tv watchlist import --file morning.txt --name "Morning" --dry-run
@@ -176,6 +178,7 @@ tv status / launch / state / symbol / timeframe / type / info / search
 tv quote / ohlcv / values
 tv data lines/labels/tables/boxes/strategy/trades/equity/depth/indicator
 tv pine get/set/compile/analyze/check/save/new/open/list/errors/console
+tv pine pull/push
 tv draw shape/list/get/remove/clear
 tv alert list/create/delete/sync
 tv alert webhook-health/event-wait/event-ack

@@ -68,6 +68,8 @@ describe('CLI — help and routing', () => {
     assert.ok(stdout.includes('get'));
     assert.ok(stdout.includes('set'));
     assert.ok(stdout.includes('compile'));
+    assert.ok(stdout.includes('pull'));
+    assert.ok(stdout.includes('push'));
     assert.ok(stdout.includes('analyze'));
     assert.ok(stdout.includes('check'));
   });

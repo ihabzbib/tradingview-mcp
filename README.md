@@ -124,13 +124,19 @@ Add to your Claude Code MCP config (`~/.claude/.mcp.json` or project `.mcp.json`
   "mcpServers": {
     "tradingview": {
       "command": "node",
-      "args": ["/path/to/tradingview-mcp/src/server.js"]
+      "args": ["/path/to/tradingview-mcp/src/server-bootstrap.js"]
     }
   }
 }
 ```
 
 Replace `/path/to/tradingview-mcp` with your actual path.
+
+For local environment variables like `TV_TRADING_EXECUTION_PROFILE`,
+`TV_TRADING_BROKER`, `TV_TRADING_ADAPTER_MODULE`, and
+`TV_TRADING_IDEMPOTENCY_DIR`, either set them in your MCP host environment or
+place them in a `.env` file at the project root (loaded automatically by
+`server-bootstrap.js`).
 
 ### 4. Verify
 
@@ -179,6 +185,7 @@ tv layout list/switch
 tv pane list/layout/focus/symbol
 tv tab list/new/close/switch
 tv replay start/step/stop/status/autoplay/trade
+tv trading account_snapshot/alert_wait_snapshot/order_wait/order_submit_guarded/order_cancel_guarded/order_replace_guarded/position_close_guarded
 tv stream quote/bars/values/lines/labels/tables/all
 tv ui click/keyboard/hover/scroll/find/eval/type/panel/fullscreen/mouse
 tv screenshot / discover / ui-state / range / scroll
@@ -223,6 +230,24 @@ duplicates, and replaces only conflicting IDs named in `replace_alert_ids`.
 Pine metadata is read from an already-open pane with the exact canonical symbol
 and timeframe; the alert resolver never focuses or changes a chart pane. Run a
 dry-run before applying a plan.
+
+### Policy-controlled structured trading
+
+The server exposes broker-agnostic account snapshot, alert/snapshot wait,
+order wait, and guarded submit/cancel/replace/position-close tools. Trading
+mutations are disabled by default. They never choose a destination because a
+broker happens to be connected.
+
+For the supervised intraday workflow, configure a separate MCP server process
+with `TV_TRADING_EXECUTION_PROFILE=paper-only`, an exact `TV_TRADING_BROKER`,
+and an explicit `TV_TRADING_ADAPTER_MODULE`. The adapter must positively mark
+the exact account as simulated. Every mutation additionally requires the
+caller to echo the server profile, exact broker/account identity, complete
+`current_state` from a fresh snapshot, and a unique approval/idempotency ID.
+
+See [TRADING_ADAPTER.md](./TRADING_ADAPTER.md) for the adapter contract,
+paper-only configuration, durable retry rules, and separately gated
+live-enabled configuration.
 
 ### TradingView webhook receiver
 
@@ -459,7 +484,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (89 tools) + CLI (`tv` command)
+- **Transport**: MCP over stdio + CLI (`tv` command)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`

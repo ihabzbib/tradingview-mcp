@@ -13,6 +13,11 @@
   },
     "scripts": {
     "start": "node src/server-bootstrap.js",
+    "launch": "npm run launch:mac --if-present",
+    "launch:mac": "bash scripts/launch_tv_debug_mac.sh",
+    "launch:linux": "bash scripts/launch_tv_debug_linux.sh",
+    "launch:windows": "scripts/launch_tv_debug.bat",
+    "launch:windows:vbs": "cscript //nologo scripts/launch_tv_debug.vbs",
     "webhook": "node src/webhook/server.js",
     "tv": "node src/cli/index.js",
     "lint": "eslint src/",

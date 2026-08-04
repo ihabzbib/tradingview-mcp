@@ -277,7 +277,7 @@ The tunnel command uses `TV_WEBHOOK_PORT` when present (default: `8787`).
 To start the MCP server, webhook receiver, and ngrok tunnel together:
 
 ```bash
-npm run start:all
+npm run start
 ```
 
 Expose only `/tradingview/alerts` through a stable HTTPS reverse proxy or

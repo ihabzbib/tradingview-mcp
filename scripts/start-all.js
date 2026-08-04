@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const tasks = ['start', 'webhook', 'ngrok:webhook'];
+const tasks = ['start:bootstrap', 'webhook', 'ngrok:webhook'];
 const children = tasks.map((task) => {
   const child = spawn(npm, ['run', task], { stdio: 'inherit' });
   child.task = task;

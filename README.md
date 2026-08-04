@@ -264,6 +264,16 @@ export TV_WEBHOOK_PORT=8787
 npm run webhook
 ```
 
+Expose `npm run ngrok:auth` and `npm run ngrok:webhook` for local tunnel setup:
+
+```bash
+export NGROK_TOKEN="..."
+npm run ngrok:auth
+npm run ngrok:webhook
+```
+
+The tunnel command uses `TV_WEBHOOK_PORT` when present (default: `8787`).
+
 Expose only `/tradingview/alerts` through a stable HTTPS reverse proxy or
 tunnel on public port 443. Configure the proxy to validate TradingView's source
 before forwarding; the receiver deliberately binds to localhost and never

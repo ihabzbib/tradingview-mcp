@@ -13,10 +13,21 @@ if (typeof process.loadEnvFile === 'function') {
     );
   }
 } else {
-  process.stderr.write(
-    '⚠  tradingview-mcp  |  Node.js version does not support process.loadEnvFile(). ' +
-      'Using only process-level environment variables.\n',
-  );
+  try {
+    const dotenv = await import('dotenv');
+    const result = dotenv.config({ path: envFile, quiet: true });
+    if (result.error && result.error.code !== 'ENOENT') {
+      process.stderr.write(
+        '⚠  tradingview-mcp  |  Could not load .env via dotenv, using process environment instead. ' +
+          `${result.error.message}\n`,
+      );
+    }
+  } catch {
+    process.stderr.write(
+      '⚠  tradingview-mcp  |  dotenv is unavailable and process.loadEnvFile() is not supported. ' +
+        'Using only process-level environment variables.\n',
+    );
+  }
 }
 
 await import('./server.js');

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "tradingview": {
+      "command": "node",
+      "args": ["/Users/ihab/dev/tradingview-mcp-desktop/src/server-bootstrap.js"]
+    }
+  }
+}

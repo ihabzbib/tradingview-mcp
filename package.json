@@ -12,7 +12,7 @@
     "./core": "./src/core/index.js"
   },
     "scripts": {
-    "start": "node scripts/start-all.js",
+    "start": "npm run start:bootstrap & npm run webhook & npm run ngrok:webhook",
     "start:bootstrap": "node src/server-bootstrap.js",
     "launch": "node -e \"const { spawnSync } = require('node:child_process'); const p=process.platform; const script = p === 'darwin' ? 'launch:mac' : p === 'linux' ? 'launch:linux' : 'launch:windows'; const npm = p === 'win32' ? 'npm.cmd' : 'npm'; const status = spawnSync(npm, ['run', script], { stdio: 'inherit', shell: true }).status; process.exit(status == null ? 0 : status);\"",
     "launch:mac": "bash scripts/launch_tv_debug_mac.sh",

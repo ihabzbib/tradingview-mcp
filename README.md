@@ -132,6 +132,9 @@ Add to your Claude Code MCP config (`~/.claude/.mcp.json` or project `.mcp.json`
 
 Replace `/path/to/tradingview-mcp` with your actual path.
 
+`server-bootstrap.js` was removed in this branch, and the process now uses
+`node --env-file=.env src/server.js` directly (requires Node 24+).
+
 For local environment variables like `TV_TRADING_EXECUTION_PROFILE`,
 `TV_TRADING_BROKER`, `TV_TRADING_ADAPTER_MODULE`, and
 `TV_TRADING_IDEMPOTENCY_DIR`, either set them in your MCP host environment or

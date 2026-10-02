@@ -7,7 +7,8 @@ This file is a step-by-step guide for Claude Code (or any LLM agent) to install 
 ```bash
 git clone https://github.com/tradesdontlie/tradingview-mcp.git ~/tradingview-mcp
 cd ~/tradingview-mcp
-npm install
+corepack enable
+pnpm install
 ```
 
 If the user specifies a different install path, use that instead of `~/tradingview-mcp`.
@@ -105,7 +106,7 @@ To use the `tv` CLI command globally:
 
 ```bash
 cd ~/tradingview-mcp
-npm link
+pnpm link --global
 ```
 
 Then `tv status`, `tv quote`, `tv pine compile`, etc. work from anywhere.
@@ -118,7 +119,7 @@ Then `tv status`, `tv quote`, `tv pine compile`, etc. work from anywhere.
 | Windows: "Access is denied" launching from `WindowsApps` | Use `tv_launch` (auto copy-fallback) or the manual copy snippet in Step 3 — never `icacls` on WindowsApps |
 | `ECONNREFUSED` | TradingView isn't running or port 9222 is blocked |
 | MCP server not showing in Claude Code | Check `~/.claude/.mcp.json` syntax, restart Claude Code |
-| `tv` command not found | Run `npm link` from the project directory |
+| `tv` command not found | Run `pnpm link --global` from the project directory |
 | Tools return stale data | TradingView may still be loading — wait a few seconds |
 | Pine Editor tools fail | Open the Pine Editor panel first (`ui_open_panel pine-editor open`) |
 

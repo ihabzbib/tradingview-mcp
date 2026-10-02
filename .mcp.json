@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "tradingview": {
+      "command": "node",
+      "args": [
+        "--env-file=/Users/ihab/dev/tradingview-mcp-desktop/.env",
+        "/Users/ihab/dev/tradingview-mcp-desktop/src/server.js"
+      ]
+    }
+  }
+}

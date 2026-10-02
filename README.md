@@ -50,7 +50,7 @@ See [RESEARCH.md](RESEARCH.md) for open questions, findings, and related work.
 ## Prerequisites
 
 - **TradingView Desktop app** (paid subscription required for real-time data)
-- **Node.js 18+**
+- **Node.js 24+**
 - **Claude Code** with MCP support (for MCP tools) or any terminal (for CLI)
 - **macOS, Windows, or Linux**
 
@@ -74,7 +74,7 @@ Gives your AI assistant eyes and hands on your own chart:
 
 Paste this into Claude Code and it will handle the rest:
 
-> Install the TradingView MCP server. Clone https://github.com/tradesdontlie/tradingview-mcp.git, run npm install, add it to my MCP config at ~/.claude/.mcp.json, and launch TradingView with the debug port. Then verify the connection with tv_health_check.
+> Install the TradingView MCP server. Clone https://github.com/tradesdontlie/tradingview-mcp.git, enable Corepack, run pnpm install, add it to my MCP config at ~/.claude/.mcp.json, and launch TradingView with the debug port. Then verify the connection with tv_health_check.
 
 Or follow the manual steps below.
 
@@ -85,7 +85,8 @@ Or follow the manual steps below.
 ```bash
 git clone https://github.com/tradesdontlie/tradingview-mcp.git
 cd tradingview-mcp
-npm install
+corepack enable
+pnpm install
 ```
 
 ### 2. Launch TradingView with CDP
@@ -132,6 +133,15 @@ Add to your Claude Code MCP config (`~/.claude/.mcp.json` or project `.mcp.json`
 
 Replace `/path/to/tradingview-mcp` with your actual path.
 
+`server-bootstrap.js` was removed in this branch, and the process now uses
+`node --env-file=.env src/server.js` directly (requires Node 24+).
+
+For local environment variables like `TV_TRADING_EXECUTION_PROFILE`,
+`TV_TRADING_BROKER`, `TV_TRADING_ADAPTER_MODULE`, and
+`TV_TRADING_IDEMPOTENCY_DIR`, either set them in your MCP host environment or
+place them in a `.env` file at the project root (loaded automatically by
+`node --env-file=.env`).
+
 ### 4. Verify
 
 Ask Claude: *"Use tv_health_check to verify TradingView is connected"*
@@ -142,7 +152,7 @@ Every MCP tool is also accessible as a `tv` CLI command. All output is JSON for 
 
 ```bash
 # Install globally (optional)
-npm link
+pnpm link --global
 
 # Or run directly
 node src/cli/index.js <command>
@@ -157,6 +167,8 @@ tv symbol AAPL                     # change symbol
 tv ohlcv --summary                 # price summary
 tv screenshot -r chart             # capture chart
 tv pine compile                    # compile Pine Script
+tv pine pull                       # save current Pine script to scripts/current.pine
+tv pine push                       # load scripts/current.pine and smart-compile
 tv pane layout 2x2                 # 4-chart grid
 tv pane symbol 1 ES1!              # set pane symbol
 tv watchlist import --file morning.txt --name "Morning" --dry-run
@@ -170,6 +182,7 @@ tv status / launch / state / symbol / timeframe / type / info / search
 tv quote / ohlcv / values
 tv data lines/labels/tables/boxes/strategy/trades/equity/depth/indicator
 tv pine get/set/compile/analyze/check/save/new/open/list/errors/console
+tv pine pull/push
 tv draw shape/list/get/remove/clear
 tv alert list/create/delete/sync
 tv alert webhook-health/event-wait/event-ack
@@ -179,6 +192,7 @@ tv layout list/switch
 tv pane list/layout/focus/symbol
 tv tab list/new/close/switch
 tv replay start/step/stop/status/autoplay/trade
+tv trading account_snapshot/alert_wait_snapshot/order_wait/order_submit_guarded/order_cancel_guarded/order_replace_guarded/position_close_guarded
 tv stream quote/bars/values/lines/labels/tables/all
 tv ui click/keyboard/hover/scroll/find/eval/type/panel/fullscreen/mouse
 tv screenshot / discover / ui-state / range / scroll
@@ -224,6 +238,24 @@ Pine metadata is read from an already-open pane with the exact canonical symbol
 and timeframe; the alert resolver never focuses or changes a chart pane. Run a
 dry-run before applying a plan.
 
+### Policy-controlled structured trading
+
+The server exposes broker-agnostic account snapshot, alert/snapshot wait,
+order wait, and guarded submit/cancel/replace/position-close tools. Trading
+mutations are disabled by default. They never choose a destination because a
+broker happens to be connected.
+
+For the supervised intraday workflow, configure a separate MCP server process
+with `TV_TRADING_EXECUTION_PROFILE=paper-only`, an exact `TV_TRADING_BROKER`,
+and an explicit `TV_TRADING_ADAPTER_MODULE`. The adapter must positively mark
+the exact account as simulated. Every mutation additionally requires the
+caller to echo the server profile, exact broker/account identity, complete
+`current_state` from a fresh snapshot, and a unique approval/idempotency ID.
+
+See [TRADING_ADAPTER.md](./TRADING_ADAPTER.md) for the adapter contract,
+paper-only configuration, durable retry rules, and separately gated
+live-enabled configuration.
+
 ### TradingView webhook receiver
 
 Run the notification-only receiver as a persistent process, separate from the
@@ -233,7 +265,23 @@ MCP stdio process:
 export TV_WEBHOOK_EVENT_DIR="$HOME/.tradingview-mcp/webhook-events"
 export TV_WEBHOOK_HOST=127.0.0.1
 export TV_WEBHOOK_PORT=8787
-npm run webhook
+pnpm webhook:server
+```
+
+Expose `pnpm ngrok:auth` and `pnpm ngrok:porxy` for local tunnel setup:
+
+```bash
+export NGROK_TOKEN="..."
+pnpm ngrok:auth
+pnpm ngrok:porxy
+```
+
+The tunnel command uses `TV_WEBHOOK_PORT` when present (default: `8787`).
+
+To start the MCP server, webhook receiver, and ngrok tunnel together:
+
+```bash
+pnpm start
 ```
 
 Expose only `/tradingview/alerts` through a stable HTTPS reverse proxy or
@@ -245,7 +293,7 @@ public URL.
 Give the MCP process a named public receiver profile:
 
 ```bash
-export TV_WEBHOOK_URL_SUPERVISED_LOCAL="https://alerts.example.com/tradingview/alerts"
+export TV_WEBHOOK_URL="https://alerts.example.com/tradingview/alerts"
 ```
 
 Then add the non-secret profile name to an exact alert definition:
@@ -448,7 +496,7 @@ The key flag: `--remote-debugging-port=9222`
 
 ```bash
 # Requires TradingView running with --remote-debugging-port=9222
-npm test
+pnpm test
 ```
 
 29 tests covering: Pine Script static analysis, server-side compilation, and CLI routing.
@@ -459,7 +507,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (89 tools) + CLI (`tv` command)
+- **Transport**: MCP over stdio + CLI (`tv` command)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`

@@ -7,26 +7,39 @@
   "bin": {
     "tv": "src/cli/index.js"
   },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@11.20.0",
   "exports": {
     ".": "./src/server.js",
     "./core": "./src/core/index.js"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "webhook": "node src/webhook/server.js",
+    "start": "pnpm start:bootstrap & pnpm webhook:server & pnpm ngrok:porxy & pnpm launch",
+    "start:bootstrap": "node --env-file=.env src/server.js",
+    "launch": "node -e \"const { spawnSync } = require('node:child_process'); const p=process.platform; const script = p === 'darwin' ? 'launch:mac' : p === 'linux' ? 'launch:linux' : 'launch:windows'; const pnpm = p === 'win32' ? 'pnpm.cmd' : 'pnpm'; const status = spawnSync(pnpm, ['run', script], { stdio: 'inherit', shell: true }).status; process.exit(status == null ? 0 : status);\"",
+    "launch:mac": "bash scripts/launch_tv_debug_mac.sh",
+    "launch:linux": "bash scripts/launch_tv_debug_linux.sh",
+    "launch:windows": "scripts/launch_tv_debug.bat",
+    "launch:windows:vbs": "cscript //nologo scripts/launch_tv_debug.vbs",
+    "webhook:server": "node --env-file=.env src/webhook/server.js",
+    "ngrok:auth": "node --env-file=.env -e \"const { spawnSync } = require('node:child_process'); const token = process.env.NGROK_TOKEN; if (!token) { console.error('Set NGROK_TOKEN before running pnpm ngrok:auth.'); process.exit(1); } const child = spawnSync('ngrok', ['config', 'add-authtoken', token], { stdio: 'inherit', shell: true }); process.exit(typeof child.status === 'number' ? child.status : 0);\"",
+    "ngrok:porxy": "node --env-file=.env -e \"const { spawn } = require('node:child_process'); const port = process.env.TV_WEBHOOK_PORT || '8787'; const child = spawn('ngrok', ['http', port], { stdio: 'inherit' }); child.on('error', (error) => { console.error('Failed to start ngrok:', error.message); process.exit(1); }); child.on('exit', (code) => { process.exit(code ?? 0); });\"",
     "tv": "node src/cli/index.js",
     "lint": "eslint src/",
     "test": "node --test tests/e2e.test.js tests/pine_analyze.test.js",
     "test:e2e": "node --test tests/e2e.test.js",
-    "test:unit": "node --test tests/pine_analyze.test.js tests/cli.test.js tests/sanitization.test.js tests/replay.test.js tests/launch.test.js tests/chart_indicator.test.js tests/chart_history.test.js tests/update.test.js tests/watchlist_import.test.js tests/alerts.test.js tests/webhook.test.js",
+    "test:unit": "node --test tests/pine_analyze.test.js tests/cli.test.js tests/sanitization.test.js tests/replay.test.js tests/launch.test.js tests/chart_indicator.test.js tests/chart_history.test.js tests/update.test.js tests/watchlist_import.test.js tests/alerts.test.js tests/webhook.test.js tests/trading.test.js",
     "test:cli": "node --test tests/cli.test.js",
-    "test:all": "node --test tests/e2e.test.js tests/pine_analyze.test.js tests/cli.test.js tests/sanitization.test.js tests/replay.test.js tests/launch.test.js tests/chart_indicator.test.js tests/chart_history.test.js tests/update.test.js tests/watchlist_import.test.js tests/alerts.test.js tests/webhook.test.js",
+    "test:all": "node --test tests/e2e.test.js tests/pine_analyze.test.js tests/cli.test.js tests/sanitization.test.js tests/replay.test.js tests/launch.test.js tests/chart_indicator.test.js tests/chart_history.test.js tests/update.test.js tests/watchlist_import.test.js tests/alerts.test.js tests/webhook.test.js tests/trading.test.js",
     "test:verbose": "node --test --test-reporter=spec tests/e2e.test.js tests/pine_analyze.test.js",
     "test:count": "node --test --test-reporter=spec tests/e2e.test.js 2>&1 | tail -5"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "chrome-remote-interface": "^0.33.2"
+    "chrome-remote-interface": "^0.33.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "eslint": "^9.39.4"

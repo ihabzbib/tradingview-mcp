@@ -15,6 +15,7 @@ import { registerWatchlistTools } from './tools/watchlist.js';
 import { registerUiTools } from './tools/ui.js';
 import { registerPaneTools } from './tools/pane.js';
 import { registerTabTools } from './tools/tab.js';
+import { registerTradingTools } from './tools/trading.js';
 
 const server = new McpServer(
   {
@@ -23,7 +24,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 89 tools for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — structured tools for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -62,6 +63,7 @@ Launch: tv_launch → auto-detect and start TradingView with CDP on any platform
 Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Watchlists: watchlist_import → guarded named import/select for supervised Paper Trading preparation (use dry_run first)
 Tabs: tab_list, tab_new, tab_close, tab_switch
+Trading: trading_account_snapshot, trading_alert_wait_snapshot, trading_order_wait; guarded submit/cancel/replace/position-close mutations require exact configured broker/account/profile/state plus an approval ID
 
 CONTEXT MANAGEMENT:
 - ALWAYS use summary=true on data_get_ohlcv
@@ -88,6 +90,7 @@ registerWatchlistTools(server);
 registerUiTools(server);
 registerPaneTools(server);
 registerTabTools(server);
+registerTradingTools(server);
 
 // Startup notice (stderr so it doesn't interfere with MCP stdio protocol)
 process.stderr.write('⚠  tradingview-mcp  |  Unofficial tool. Not affiliated with TradingView Inc. or Anthropic.\n');

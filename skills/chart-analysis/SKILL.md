@@ -7,6 +7,29 @@ description: Analyze a chart — set up symbol/timeframe, add indicators, scroll
 
 You are performing technical analysis on a TradingView chart.
 
+## Startup
+
+Before using the TradingView tools, work from the repository root:
+
+```bash
+cd ~/dev/tradingview-mcp-desktop
+pnpm start
+```
+
+Use `pnpm start` when webhook alerts or event handling may be needed. It starts
+the MCP server, webhook receiver, ngrok tunnel, and TradingView Desktop in debug
+mode. Keep the command running for the duration of the session.
+
+If the MCP server and webhook listener are already running and only TradingView
+needs to be opened or relaunched, use:
+
+```bash
+pnpm launch
+```
+
+After startup, call `tv_health_check` before continuing. If the health check
+fails, do not attempt chart operations until the connection is restored.
+
 ## Step 1: Set Up the Chart
 
 1. `chart_set_symbol` — switch to the requested symbol

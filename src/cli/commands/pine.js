@@ -1,6 +1,16 @@
 import { register } from '../router.js';
 import * as core from '../../core/pine.js';
 import { readFileSync } from 'fs';
+import { writeFileSync } from 'fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const THIS_FILE = fileURLToPath(import.meta.url);
+const CURRENT_PINE_PATH = resolve(dirname(THIS_FILE), '../../../scripts/current.pine');
+
+function sourcePath(filePath) {
+  return filePath ? resolve(filePath) : CURRENT_PINE_PATH;
+}
 
 async function readStdin() {
   if (process.stdin.isTTY) return null;
@@ -101,6 +111,47 @@ register('pine', {
     ['console', {
       description: 'Get Pine Script console/log output',
       handler: () => core.getConsole(),
+    }],
+    ['pull', {
+      description: 'Pull current Pine Script source from TradingView into scripts/current.pine',
+      options: {
+        file: { type: 'string', short: 'f', description: 'Write source to this file (default: scripts/current.pine)' },
+      },
+      handler: async (opts) => {
+        const source_path = sourcePath(opts.file);
+        const fetched = await core.getSource();
+        writeFileSync(source_path, fetched.source || '', 'utf-8');
+        return {
+          success: true,
+          action: 'pull',
+          source_path,
+          bytes_written: (fetched.source || '').length,
+          line_count: (fetched.source || '').split('\n').length,
+          char_count: (fetched.source || '').length,
+        };
+      },
+    }],
+    ['push', {
+      description: 'Push scripts/current.pine into TradingView and smart-compile',
+      options: {
+        file: { type: 'string', short: 'f', description: 'Read source from this file (default: scripts/current.pine)' },
+      },
+      handler: async (opts) => {
+        const source_path = sourcePath(opts.file);
+        const source = readFileSync(source_path, 'utf-8');
+        const set = await core.setSource({ source });
+        const compile = await core.smartCompile();
+        return {
+          success: true,
+          action: 'push',
+          source_path,
+          lines_set: set.lines_set,
+          button_clicked: compile.button_clicked,
+          has_errors: compile.has_errors,
+          errors: compile.errors,
+          study_added: compile.study_added,
+        };
+      },
     }],
   ]),
 });

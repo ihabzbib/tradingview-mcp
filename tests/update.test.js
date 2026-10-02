@@ -1,7 +1,7 @@
 /**
  * Tests for update() in src/core/update.js.
  * Covers guards (non-git, wrong branch, dirty tree, diverged) and the
- * update path (fast-forward, npm ci only when the lockfile changed).
+ * update path (fast-forward, pnpm install only when the lockfile changed).
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,8 +14,8 @@ const NEW = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
  * Build DI deps simulating a git repo.
  * @param {object} opts — branch, dirty, remoteSha, ahead, behind, lockChanged
  */
-function gitDeps({ branch = 'main', dirty = '', remoteSha = OLD, ahead = 0, behind = 0, lockChanged = false, npmFails = false } = {}) {
-  const state = { merged: false, npmCi: 0, cmds: [] };
+function gitDeps({ branch = 'main', dirty = '', remoteSha = OLD, ahead = 0, behind = 0, lockChanged = false, pnpmFails = false } = {}) {
+  const state = { merged: false, pnpmInstall: 0, cmds: [] };
   const deps = {
     existsSync: () => true,
     repoRoot: 'C:/fake/repo',
@@ -28,11 +28,11 @@ function gitDeps({ branch = 'main', dirty = '', remoteSha = OLD, ahead = 0, behi
       if (cmd.includes('rev-parse origin/main')) return remoteSha;
       if (cmd.includes('rev-list --count origin/main..HEAD')) return String(ahead);
       if (cmd.includes('rev-list --count HEAD..origin/main')) return String(behind);
-      if (cmd.includes('diff --name-only')) return lockChanged ? 'package-lock.json' : '';
+      if (cmd.includes('diff --name-only')) return lockChanged ? 'pnpm-lock.yaml' : '';
       if (cmd.includes('merge --ff-only')) { state.merged = true; return ''; }
-      if (cmd.startsWith('npm ci')) {
-        state.npmCi++;
-        if (npmFails) throw new Error('EACCES');
+      if (cmd.startsWith('corepack pnpm install')) {
+        state.pnpmInstall++;
+        if (pnpmFails) throw new Error('EACCES');
         return '';
       }
       throw new Error(`unexpected cmd: ${cmd}`);
@@ -95,7 +95,7 @@ describe('update() — update paths', () => {
     assert.ok(!state.cmds.some(c => c.includes('merge')), 'no merge attempted');
   });
 
-  it('fast-forwards and skips npm ci when the lockfile is unchanged', async () => {
+  it('fast-forwards and skips pnpm install when the lockfile is unchanged', async () => {
     const { deps, state } = gitDeps({ remoteSha: NEW, behind: 3 });
     const r = await update({ _deps: deps });
     assert.equal(r.success, true);
@@ -104,24 +104,24 @@ describe('update() — update paths', () => {
     assert.equal(r.from_commit, OLD.slice(0, 8));
     assert.equal(r.to_commit, NEW.slice(0, 8));
     assert.equal(r.deps_installed, false);
-    assert.equal(state.npmCi, 0);
+    assert.equal(state.pnpmInstall, 0);
     assert.equal(r.restart_required, true);
   });
 
-  it('runs npm ci when the lockfile changed', async () => {
+  it('runs pnpm install when the lockfile changed', async () => {
     const { deps, state } = gitDeps({ remoteSha: NEW, behind: 1, lockChanged: true });
     const r = await update({ _deps: deps });
     assert.equal(r.success, true);
     assert.equal(r.deps_installed, true);
-    assert.equal(state.npmCi, 1);
+    assert.equal(state.pnpmInstall, 1);
   });
 
-  it('still reports the code update when npm ci fails, with a warning', async () => {
-    const { deps } = gitDeps({ remoteSha: NEW, behind: 1, lockChanged: true, npmFails: true });
+  it('still reports the code update when pnpm install fails, with a warning', async () => {
+    const { deps } = gitDeps({ remoteSha: NEW, behind: 1, lockChanged: true, pnpmFails: true });
     const r = await update({ _deps: deps });
     assert.equal(r.success, true);
     assert.equal(r.updated, true);
     assert.equal(r.deps_installed, false);
-    assert.match(r.warning, /npm ci failed/);
+    assert.match(r.warning, /pnpm install failed/);
   });
 });

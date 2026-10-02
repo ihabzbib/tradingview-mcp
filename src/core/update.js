@@ -1,6 +1,6 @@
 /**
  * Core self-update logic: fetch + fast-forward merge of origin/main, then
- * npm ci when the lockfile changed. Guarded for non-git installs, dirty
+ * pnpm install when the lockfile changed. Guarded for non-git installs, dirty
  * working trees, non-main branches, and diverged history. Never touches
  * anything on failure — every guard returns before the merge.
  */
@@ -74,7 +74,7 @@ export async function update({ _deps } = {}) {
   }
 
   const behind = Number(git('rev-list --count HEAD..origin/main'));
-  const lockChanged = git('diff --name-only HEAD origin/main -- package-lock.json') !== '';
+  const lockChanged = git('diff --name-only HEAD origin/main -- pnpm-lock.yaml') !== '';
 
   git('merge --ff-only origin/main', 30000);
   const after = git('rev-parse HEAD');
@@ -83,10 +83,10 @@ export async function update({ _deps } = {}) {
   let depsWarning;
   if (lockChanged) {
     try {
-      execSync('npm ci --no-audit --no-fund', { cwd: repoRoot, timeout: 300000, stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync('corepack pnpm install --frozen-lockfile', { cwd: repoRoot, timeout: 300000, stdio: ['ignore', 'pipe', 'pipe'] });
       depsInstalled = true;
     } catch (err) {
-      depsWarning = `Code updated but npm ci failed — run it manually in ${repoRoot}: ${err.message}`;
+      depsWarning = `Code updated but pnpm install failed — run it manually in ${repoRoot}: ${err.message}`;
     }
   }
 

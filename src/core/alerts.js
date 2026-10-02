@@ -63,6 +63,7 @@ function requireString(value, field) {
 }
 
 function webhookEnvKey(profile) {
+  if (profile === 'supervised-local') return 'TV_WEBHOOK_URL';
   return `TV_WEBHOOK_URL_${profile.replaceAll('-', '_').toUpperCase()}`;
 }
 
@@ -105,6 +106,11 @@ export function resolveWebhookProfile(profile, env = process.env) {
 
 function profileForWebhookUrl(raw, env = process.env) {
   if (typeof raw !== 'string' || !raw) return null;
+  let defaultConfigured = env.TV_WEBHOOK_URL;
+  let listedDefault = raw;
+  try { defaultConfigured = new URL(defaultConfigured).toString(); } catch {}
+  try { listedDefault = new URL(raw).toString(); } catch {}
+  if (defaultConfigured && defaultConfigured === listedDefault) return 'supervised-local';
   for (const [key, value] of Object.entries(env)) {
     if (!key.startsWith('TV_WEBHOOK_URL_')) continue;
     let configured = value;

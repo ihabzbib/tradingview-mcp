@@ -74,7 +74,7 @@ Gives your AI assistant eyes and hands on your own chart:
 
 Paste this into Claude Code and it will handle the rest:
 
-> Install the TradingView MCP server. Clone https://github.com/tradesdontlie/tradingview-mcp.git, run npm install, add it to my MCP config at ~/.claude/.mcp.json, and launch TradingView with the debug port. Then verify the connection with tv_health_check.
+> Install the TradingView MCP server. Clone https://github.com/tradesdontlie/tradingview-mcp.git, enable Corepack, run pnpm install, add it to my MCP config at ~/.claude/.mcp.json, and launch TradingView with the debug port. Then verify the connection with tv_health_check.
 
 Or follow the manual steps below.
 
@@ -85,7 +85,8 @@ Or follow the manual steps below.
 ```bash
 git clone https://github.com/tradesdontlie/tradingview-mcp.git
 cd tradingview-mcp
-npm install
+corepack enable
+pnpm install
 ```
 
 ### 2. Launch TradingView with CDP
@@ -151,7 +152,7 @@ Every MCP tool is also accessible as a `tv` CLI command. All output is JSON for 
 
 ```bash
 # Install globally (optional)
-npm link
+pnpm link --global
 
 # Or run directly
 node src/cli/index.js <command>
@@ -264,15 +265,15 @@ MCP stdio process:
 export TV_WEBHOOK_EVENT_DIR="$HOME/.tradingview-mcp/webhook-events"
 export TV_WEBHOOK_HOST=127.0.0.1
 export TV_WEBHOOK_PORT=8787
-npm run webhook
+pnpm webhook:server
 ```
 
-Expose `npm run ngrok:auth` and `npm run ngrok:webhook` for local tunnel setup:
+Expose `pnpm ngrok:auth` and `pnpm ngrok:porxy` for local tunnel setup:
 
 ```bash
 export NGROK_TOKEN="..."
-npm run ngrok:auth
-npm run ngrok:webhook
+pnpm ngrok:auth
+pnpm ngrok:porxy
 ```
 
 The tunnel command uses `TV_WEBHOOK_PORT` when present (default: `8787`).
@@ -280,7 +281,7 @@ The tunnel command uses `TV_WEBHOOK_PORT` when present (default: `8787`).
 To start the MCP server, webhook receiver, and ngrok tunnel together:
 
 ```bash
-npm run start
+pnpm start
 ```
 
 Expose only `/tradingview/alerts` through a stable HTTPS reverse proxy or
@@ -292,7 +293,7 @@ public URL.
 Give the MCP process a named public receiver profile:
 
 ```bash
-export TV_WEBHOOK_URL_SUPERVISED_LOCAL="https://alerts.example.com/tradingview/alerts"
+export TV_WEBHOOK_URL="https://alerts.example.com/tradingview/alerts"
 ```
 
 Then add the non-secret profile name to an exact alert definition:
@@ -495,7 +496,7 @@ The key flag: `--remote-debugging-port=9222`
 
 ```bash
 # Requires TradingView running with --remote-debugging-port=9222
-npm test
+pnpm test
 ```
 
 29 tests covering: Pine Script static analysis, server-side compilation, and CLI routing.

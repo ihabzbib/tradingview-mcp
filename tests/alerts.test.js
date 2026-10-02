@@ -193,12 +193,12 @@ describe('alert definition validation and payloads', () => {
     );
     assert.throws(
       () => resolveWebhookProfile('supervised-local', {
-        TV_WEBHOOK_URL_SUPERVISED_LOCAL: 'http://localhost:8787/tradingview/alerts',
+        TV_WEBHOOK_URL: 'http://localhost:8787/tradingview/alerts',
       }),
       /must use HTTPS/,
     );
     const resolved = resolveWebhookProfile('supervised-local', {
-      TV_WEBHOOK_URL_SUPERVISED_LOCAL: 'https://alerts.example.test/tradingview/alerts',
+      TV_WEBHOOK_URL: 'https://alerts.example.test/tradingview/alerts',
     });
     assert.equal(resolved.profile, 'supervised-local');
   });
@@ -263,7 +263,7 @@ describe('alert definition validation and payloads', () => {
         resolution: '1',
         series: [{ type: 'value', value: 123.45 }],
       },
-    }, { env: { TV_WEBHOOK_URL_SUPERVISED_LOCAL: 'https://alerts.example.test/tradingview/alerts' } });
+    }, { env: { TV_WEBHOOK_URL: 'https://alerts.example.test/tradingview/alerts' } });
     assert.equal(normalized.webhook_enabled, true);
     assert.equal(normalized.webhook_profile, 'supervised-local');
   });
